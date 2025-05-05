@@ -1,123 +1,115 @@
-
 #include <iostream>
-#include <algorithm> 
+#include <algorithm>
+#include <stdexcept>
 
 using namespace std;
 
 class MyVector {
 private:
-    int _size;        
-    int _capacity;    
-    int* _data;      
+    int _size = 0;
+    int _capacity = 0;
+    int* _data = nullptr;
+
+    void reallocate(int new_capacity) {
+        int* new_data = new int[new_capacity];
+        if (_data) {
+            copy(_data, _data + _size, new_data);
+            delete[] _data;
+        }
+        _data = new_data;
+        _capacity = new_capacity;
+    }
 
 public:
+    // Базовый конструктор
     MyVector() : _size(0), _capacity(0), _data(nullptr) {}
 
+    // Конструктор с размером и начальным значением
     MyVector(int n, int initialValue = 0) : _size(n), _capacity(n) {
-        _data = new int[n];
-        for (int i = 0; i < n; ++i) {
-            _data[i] = initialValue;
-        }
-    }
-
-    MyVector(const MyVector& other) : _size(other._size), _capacity(other._capacity) {
         _data = new int[_capacity];
-        std::copy(other._data, other._data + _size, _data); 
+        fill(_data, _data + _size, initialValue);
     }
 
+    // Конструктор копирования
+    MyVector(const MyVector& other) : _size(other._size), _capacity(other._size) {
+        _data = new int[_capacity];
+        copy(other._data, other._data + _size, _data);
+    }
+
+    // Оператор присваивания копированием
     MyVector& operator=(const MyVector& other) {
         if (this != &other) {
             delete[] _data;
-
             _size = other._size;
-            _capacity = other._capacity;
+            _capacity = other._size;
             _data = new int[_capacity];
-            std::copy(other._data, other._data + _size, _data);
+            copy(other._data, other._data + _size, _data);
         }
         return *this;
     }
 
+    // Деструктор
     ~MyVector() {
         delete[] _data;
     }
 
-    
-    void resize(int newSize) {
-        if (newSize > _capacity) {
-            reserve(newSize);
+    // Изменение размера
+    void resize(int new_size, int value = 0) {
+        if (new_size > _capacity) {
+            reserve(max(new_size, _capacity * 2));
         }
-
-        if (newSize > _size) {
-            for (int i = _size; i < newSize; ++i) {
-                _data[i] = 0;
-            }
+        if (new_size > _size) {
+            fill(_data + _size, _data + new_size, value);
         }
-
-        _size = newSize;
+        _size = new_size;
     }
 
-    void reserve(int newCapacity) {
-        if (newCapacity > _capacity) {
-            int* newData = new int[newCapacity];
-            if (_data) {
-                std::copy(_data, _data + _size, newData);
-                delete[] _data;
-            }
-            _data = newData;
-            _capacity = newCapacity;
+    // Резервирование памяти
+    void reserve(int new_capacity) {
+        if (new_capacity > _capacity) {
+            reallocate(new_capacity);
         }
     }
 
+    // Уменьшение емкости до размера
     void shrink_to_fit() {
         if (_size < _capacity) {
-            int* newData = new int[_size];
-            std::copy(_data, _data + _size, newData);
-            delete[] _data;
-            _data = newData;
-            _capacity = _size;
+            reallocate(_size);
         }
     }
 
+    // Доступ к первому элементу
     int& front() {
-        if (_size == 0) {
-            throw std::out_of_range("MyVector::front: Vector is empty");
-        }
+        if (_size == 0) throw out_of_range("Vector is empty");
         return _data[0];
     }
 
     const int& front() const {
-        if (_size == 0) {
-            throw std::out_of_range("MyVector::front: Vector is empty");
-        }
+        if (_size == 0) throw out_of_range("Vector is empty");
         return _data[0];
     }
 
-
+    // Доступ к последнему элементу
     int& back() {
-        if (_size == 0) {
-            throw std::out_of_range("MyVector::back: Vector is empty");
-        }
+        if (_size == 0) throw out_of_range("Vector is empty");
         return _data[_size - 1];
     }
 
     const int& back() const {
-        if (_size == 0) {
-            throw std::out_of_range("MyVector::back: Vector is empty");
-        }
+        if (_size == 0) throw out_of_range("Vector is empty");
         return _data[_size - 1];
     }
-    int size() const {
-        return _size;
-    }
 
-    bool empty() const {
-        return _size == 0;
-    }
+    // Размер вектора
+    int size() const { return _size; }
 
-    int capacity() const {
-        return _capacity;
-    }
+    // Проверка на пустоту
+    bool empty() const { return _size == 0; }
 
+    // Емкость вектора
+    int capacity() const { return _capacity; }
+
+    // Добавление элемента в конец
     void push_back(int value) {
         if (_size == _capacity) {
             reserve(_capacity == 0 ? 1 : _capacity * 2);
@@ -125,49 +117,43 @@ public:
         _data[_size++] = value;
     }
 
-    void insert(int position, int value) {
-        if (position < 0 || position > _size) {
-            throw std::out_of_range("MyVector::insert: Invalid position");
-        }
+    // Вставка элемента
+    void insert(int pos, int value) {
+        if (pos < 0 || pos > _size) throw out_of_range("Invalid position");
 
         if (_size == _capacity) {
             reserve(_capacity == 0 ? 1 : _capacity * 2);
         }
 
-        for (int i = _size; i > position; --i) {
+        for (int i = _size; i > pos; --i) {
             _data[i] = _data[i - 1];
         }
 
-        _data[position] = value;
-
-        _size++;
+        _data[pos] = value;
+        ++_size;
     }
 
-    void erase(int position) {
-        if (position < 0 || position >= _size) {
-            throw std::out_of_range("MyVector::erase: Invalid position");
-        }
+    // Удаление элемента
+    void erase(int pos) {
+        if (pos < 0 || pos >= _size) throw out_of_range("Invalid position");
 
-        for (int i = position; i < _size - 1; ++i) {
+        for (int i = pos; i < _size - 1; ++i) {
             _data[i] = _data[i + 1];
         }
 
-        _size--;
+        --_size;
     }
 
+    // Оператор доступа по индексу
     int& operator[](int index) {
-        if (index < 0 || index >= _size) {
-            throw std::out_of_range("MyVector::operator[]: Index out of range");
-        }
         return _data[index];
     }
 
     const int& operator[](int index) const {
-        if (index < 0 || index >= _size) {
-            throw std::out_of_range("MyVector::operator[]: Index out of range");
-        }
         return _data[index];
     }
+
+    // Вывод содержимого
     void print() const {
         for (int i = 0; i < _size; ++i) {
             cout << _data[i] << " ";
@@ -177,65 +163,35 @@ public:
 };
 
 int main() {
-    MyVector v1;
-    cout << "v1.size(): " << v1.size() << ", v1.capacity(): " << v1.capacity() << endl;
+    // Тестирование всех функций
+    MyVector v1(5, 10);
+    v1.print(); // 10 10 10 10 10
 
-    MyVector v2(5, 10);
-    cout << "v2: ";
-    v2.print(); 
-    cout << "v2.size(): " << v2.size() << ", v2.capacity(): " << v2.capacity() << endl;
+    v1.push_back(20);
+    v1.print(); // 10 10 10 10 10 20
 
-    MyVector v3 = v2;
-    cout << "v3: ";
-    v3.print(); 
-    cout << "v3.size(): " << v3.size() << ", v3.capacity(): " << v3.capacity() << endl;
+    v1.insert(2, 30);
+    v1.print(); // 10 10 30 10 10 10 20
 
-    MyVector v4;
-    v4 = v2;
-    cout << "v4: ";
-    v4.print();
-    cout << "v4.size(): " << v4.size() << ", v4.capacity(): " << v4.capacity() << endl;
+    v1.erase(3);
+    v1.print(); // 10 10 30 10 10 20
 
-    cout << "v2.front(): " << v2.front() << ", v2.back(): " << v2.back() << endl;
-    v2[0] = 5;
-    cout << "v2[0]: " << v2[0] << endl;
-    cout << "v2: ";
-    v2.print();
+    cout << "Front: " << v1.front() << ", Back: " << v1.back() << endl;
+    cout << "Size: " << v1.size() << ", Capacity: " << v1.capacity() << endl;
 
-    v2.push_back(20);
-    cout << "v2 after push_back(20): ";
-    v2.print();
-    cout << "v2.size(): " << v2.size() << ", v2.capacity(): " << v2.capacity() << endl;
+    v1.resize(3);
+    v1.print(); // 10 10 30
 
-    v2.insert(2, 30);
-    cout << "v2 after insert(2, 30): ";
-    v2.print();
-    cout << "v2.size(): " << v2.size() << ", v2.capacity(): " << v2.capacity() << endl;
+    v1.shrink_to_fit();
+    cout << "After shrink: Size = " << v1.size()
+        << ", Capacity = " << v1.capacity() << endl;
 
-    v2.erase(3);
-    cout << "v2 after erase(3): ";
-    v2.print();
-    cout << "v2.size(): " << v2.size() << ", v2.capacity(): " << v2.capacity() << endl;
+    MyVector v2 = v1;
+    v2.print(); // 10 10 30
 
-    v2.resize(3);
-    cout << "v2 after resize(3): ";
-    v2.print();
-    cout << "v2.size(): " << v2.size() << ", v2.capacity(): " << v2.capacity() << endl;
-
-    v2.reserve(10);
-    cout << "v2 after reserve(10): ";
-    v2.print();
-    cout << "v2.size(): " << v2.size() << ", v2.capacity(): " << v2.capacity() << endl;
-
-    v2.shrink_to_fit();
-    cout << "v2 after shrink_to_fit(): ";
-    v2.print();
-    cout << "v2.size(): " << v2.size() << ", v2.capacity(): " << v2.capacity() << endl;
-
-    cout << "v2.empty(): " << v2.empty() << endl;
-
-    MyVector v5;
-    cout << "v5.empty(): " << v5.empty() << endl;
+    MyVector v3;
+    v3 = v1;
+    v3.print(); // 10 10 30
 
     return 0;
 }
